@@ -2,3 +2,5 @@
 .env
 *STORE*
 *egg*
+Inputs/*
+Results/*

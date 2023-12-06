@@ -17,16 +17,37 @@ class Configuration:
         self.errors = []
         self.verbosity = {"switch": os.getenv('VERBOSITY_SWITCH') == 'True',
                           "debug": os.getenv('VERBOSITY_DEBUG') == 'True'}
-        self.crawl_type = os.getenv('CRAWL_TYPE')
-        self.current_directory = os.getcwd()
-        self.root_path = self.get_root_path()
-        self.root_path_len = len(self.root_path)
-        self.input_path = ""
-        self.input_list = self.get_inputs_list()
-        self.inputs = self.read_input_list()
-        self.output_path = ""
-        self.output_list = self.get_outputs_list()
-        self.outputs = self.read_output_list()
+        self.setvenv = self.establish_venv()
+        if self.setvenv == True:
+            self.crawl_type = os.getenv('CRAWL_TYPE')
+            self.current_directory = os.getcwd()
+            self.root_path = self.get_root_path()
+            self.root_path_len = len(self.root_path)
+            self.input_path = ""
+            self.input_list = self.get_inputs_list()
+            self.inputs = self.read_input_list()
+            self.output_path = ""
+            self.output_list = self.get_outputs_list()
+            self.outputs = self.read_output_list()
+        if len(self.errors) > 0:
+            print(
+                f"Cannot configure. Identified {str(len(self.errors))} in Configuration.")
+            for error in self.errors:
+                print(error)
+
+    def establish_venv(self):
+        def using_venv():
+            return (hasattr(sys, 'real_prefix') or
+                    (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix))
+        if using_venv():
+            return True
+        else:
+            msg = "this program requires configuration within an venv to work"
+            msg += "\ncreate a venv using the guide in the README.md file to proceed"
+            msg += " with the configuration process."
+            msg += "\nERROR: Cannot Configure Application"
+            self.errors.append('msg')
+            return False
 
     def get_root_path(self):
         frame = inspect.currentframe().f_back
@@ -51,17 +72,17 @@ class Configuration:
                     contents["filepaths"].append(os.path.join(root, file))
                     extension_index = file.find(".")
                     if extension_index >= 0:
-                        file_array = files.split(".")
+                        file_array = file.split(".")
                         extension = file_array[-1]
-                        if extension not in files:
-                            files[extension] = []
-                        files[extension].append(file)
+                        if extension not in contents["files"]:
+                            contents["files"][extension] = []
+                        contents["files"][extension].append(file)
                 for directory in dirs:
                     contents["folders"].append(os.path.join(root, directory))
                 contents["path"] = root
                 contents["relative_path"] = root[self.root_path_len-1:]
                 contents["directories"] = dirs
-                contents["files"] = files
+                contents["files"]["list"] = files
             return contents
         if os.path.exists(path):
             contents = {"path": path}
