@@ -2,6 +2,7 @@ import os
 import sys
 import inspect
 from dotenv import load_dotenv as dotenv
+from pprint import pprint
 dotenv('monolith/.env/local_env.env')
 
 
@@ -13,13 +14,17 @@ class Configuration:
     CRAWL_OUTPUT_DIRECTORY_PATH = 'Crawls'
 
     def __init__(self):
+        self.errors = []
         self.verbosity = {"switch": os.getenv('VERBOSITY_SWITCH') == 'True',
                           "debug": os.getenv('VERBOSITY_DEBUG') == 'True'}
         self.crawl_type = os.getenv('CRAWL_TYPE')
         self.current_directory = os.getcwd()
         self.root_path = self.get_root_path()
-        self.input_path = self.get_inputs_list()
+        self.root_path_len = len(self.root_path)
+        self.input_path = ""
+        self.input_list = self.get_inputs_list()
         self.inputs = self.read_input_list()
+        self.output_path = ""
         self.output_list = self.get_outputs_list()
         self.outputs = self.read_output_list()
 
@@ -30,13 +35,48 @@ class Configuration:
         if root_name_index > 0:
             return file_name[:file_name.find('/monolith/') + len('/monolith/')]
 
-    def get_directory(self, path):
-        path = path.strip()
-        print(f"in get_directory with {path}")
+    def get_directory(self, path, result_type):
+        # Uncomment block for debug info
+        # frame = inspect.currentframe().f_back
+        # line_number = frame.f_lineno
+        # print(f"called get_directory from {line_number}")
+
+        def append_directory_dict(path, result_type):
+            contents = {"path": path,
+                        "folders": [],
+                        "filepaths": [],
+                        "files": {}}
+            for root, dirs, files in os.walk(path):
+                for file in files:
+                    contents["filepaths"].append(os.path.join(root, file))
+                    extension_index = file.find(".")
+                    if extension_index >= 0:
+                        file_array = files.split(".")
+                        extension = file_array[-1]
+                        if extension not in files:
+                            files[extension] = []
+                        files[extension].append(file)
+                for directory in dirs:
+                    contents["folders"].append(os.path.join(root, directory))
+                contents["path"] = root
+                contents["relative_path"] = root[self.root_path_len-1:]
+                contents["directories"] = dirs
+                contents["files"] = files
+            return contents
         if os.path.exists(path):
-            return path
+            contents = {"path": path}
+            searched_paths = []
+            paths = [path]
+            while len(paths) > 0:
+                new_content = append_directory_dict(paths[0], result_type)
+                contents[new_content["relative_path"]] = new_content
+                searched_paths.append(paths[0])
+                paths.remove(paths[0])
+                for path in new_content["folders"]:
+                    paths.append(path)
         else:
-            print("that path doesn't exist")
+            error_msg = f"{path} does not exist. Could not populate {result_type} directory dict."
+            self.errors.append(error_msg)
 
     def get_inputs_list(self):
         final_path = ""
@@ -45,30 +85,28 @@ class Configuration:
             input_path = self.root_path
             input_path += f"/{Configuration.INPUT_DIRECTORY_NAME}"
             input_path += f"/{Configuration.CRAWL_INPUT_DIRECTORY_PATH}"
-        if input_path is not None:
-            print(input_path[:2])
+        if input_path is not None and self.root_path is not None:
             if input_path[:2] == "./":
-                final_path = self.get_directory(
-                    f'{self.root_path}{input_path[2:]}')
+                self.input_path = f'{self.root_path}{input_path[2:]}'
+                return self.get_directory(self.input_path, 'input')
             else:
-                final_path = self.get_directory(input_path)
-        return final_path
+                self.input_path = input_path
+                return self.get_directory(self.input_path, 'input')
 
     def get_outputs_list(self):
         final_path = ""
         output_path = os.getenv('OUTPUT_DIRECTORY_PATH')
-        if output_path is not None:
-            print(output_path[:2])
-            if output_path[:2] == "./":
-                final_path += f'{self.root_path}{output_path[2:]}'
-            else:
-                final_path = output_path
-            self.get_directory(final_path)
-        else:
+        if output_path is None:
             output_path = self.root_path
-            input_path += f"/{Configuration.OUTPUT_DIRECTORY_NAME}"
-            input_path += f"/{Configuration.CRAWL_OUTPUT_DIRECTORY_PATH}"
-        return None
+            output_path += f"/{Configuration.OUTPUT_DIRECTORY_NAME}"
+            output_path += f"/{Configuration.CRAWL_OUTPUT_DIRECTORY_PATH}"
+        if output_path is not None:
+            if output_path[:2] == "./":
+                self.output_path = f'{self.root_path}{output_path[2:]}'
+                return self.get_directory(self.output_path, 'output')
+            else:
+                self.output_path = output_path
+                return self.get_directory(final_path, 'output')
 
     def read_directory(self):
         return None
