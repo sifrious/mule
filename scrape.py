@@ -4,6 +4,7 @@ import logging
 #
 from .configuration import Configuration
 from .verbosity import Verbosity
+from .filelib import FileLibrary as fl
 
 
 class Scrape(Verbosity):
@@ -11,6 +12,8 @@ class Scrape(Verbosity):
     def __init__(self):
         config = Configuration()
         super().__init__(config.verbosity)
+        self.fl = fl()
+        print(self.fl)
         self.default = True
         self.queue = self.determine_queue_type(config)
         self.scrape_page()
